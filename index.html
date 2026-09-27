@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f212e">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="description" content="Mines：5×5 踩地雷下注遊戲，RTP 98%（模擬遊戲幣，非真錢）">
+<title>Mines</title>
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+<header class="topbar">
+  <a class="back-btn" id="backBtn" hidden>‹ 大廳</a>
+  <div class="brand">MINES</div>
+  <div class="demo-tag">模擬遊戲幣 · 非真錢 · RTP 98%</div>
+  <button class="sound-btn" id="soundBtn" type="button" title="音效開關" aria-label="音效開關">🔊</button>
+  <div class="wallet" title="你的遊戲幣餘額"><i class="coin"></i><b id="balance">0.00</b></div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <div class="seg" id="modeSeg">
+      <button type="button" class="on" data-mode="manual">手動</button>
+      <button type="button" data-mode="auto">自動</button>
+    </div>
+
+    <div class="field">
+      <label for="betAmount">下注金額</label>
+      <div class="input-row">
+        <input id="betAmount" type="number" inputmode="decimal" min="0.1" step="0.1" value="10">
+        <button type="button" data-amt="half">½</button>
+        <button type="button" data-amt="double">2×</button>
+        <button type="button" data-amt="max">Max</button>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <label for="minesSel">地雷</label>
+        <select id="minesSel"></select>
+      </div>
+      <div class="field">
+        <label>寶石</label>
+        <div class="readout" id="gemsOut">22</div>
+      </div>
+    </div>
+
+    <div id="autoFields" class="auto-fields" hidden>
+      <p class="hint">在右側盤面點選要自動翻開的格子（已選 <b id="autoPickCount">0</b> 格）。</p>
+      <div class="field">
+        <label for="autoCount">局數 <small>（0 = 無限）</small></label>
+        <div class="input-row"><input id="autoCount" type="number" inputmode="numeric" min="0" step="1" value="10"></div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="onWin">贏後加碼 %</label>
+          <div class="input-row"><input id="onWin" type="number" inputmode="decimal" min="0" step="1" value="0"><span class="suffix">%</span></div>
+        </div>
+        <div class="field">
+          <label for="onLoss">輸後加碼 %</label>
+          <div class="input-row"><input id="onLoss" type="number" inputmode="decimal" min="0" step="1" value="0"><span class="suffix">%</span></div>
+        </div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="stopProfit">獲利停止</label>
+          <div class="input-row"><input id="stopProfit" type="number" inputmode="decimal" min="0" step="1" value="0"></div>
+        </div>
+        <div class="field">
+          <label for="stopLoss">虧損停止</label>
+          <div class="input-row"><input id="stopLoss" type="number" inputmode="decimal" min="0" step="1" value="0"></div>
+        </div>
+      </div>
+      <p class="hint">0 = 不限；加碼 0% = 回到原始金額。</p>
+    </div>
+
+    <div class="stats" id="stats">
+      <div><span>下一格勝率</span><b id="nextChance">-</b></div>
+      <div><span>下一格倍數</span><b id="nextMult">-</b></div>
+      <div><span>目前倍數</span><b id="curMult">1.00×</b></div>
+      <div><span>目前獲利</span><b id="curProfit">0.00</b></div>
+    </div>
+
+    <button class="main-btn" id="mainBtn" type="button">下注</button>
+    <button class="sub-btn" id="randomBtn" type="button" hidden>隨機翻一格</button>
+    <p class="hint center">快捷鍵：空白鍵 下注／兌現，R 隨機翻格</p>
+  </aside>
+
+  <section class="stage">
+    <div class="ladder" id="ladder"></div>
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="5×5 地雷盤面"></div>
+      <div class="win-pop" id="winPop" hidden><b id="winMult">1.00×</b><span id="winPay">0.00</span></div>
+    </div>
+    <div class="stage-foot">
+      <span>局號 <b id="nonceOut">-</b></span>
+      <span>本局勝率 <b id="roundChance">-</b></span>
+      <button class="link" id="fairBtn" type="button">公平性</button>
+    </div>
+  </section>
+
+  <section class="tables">
+    <div class="tabs">
+      <button type="button" class="on" data-tab="mine">我的紀錄</button>
+      <button type="button" data-tab="table">倍數表</button>
+      <button type="button" data-tab="rules">規則</button>
+    </div>
+    <div class="tab-body" id="tab-mine">
+      <div class="summary" id="summary"></div>
+      <div class="list-head"><span>局號</span><span>地雷</span><span>下注</span><span>倍數</span><span>派彩</span></div>
+      <div class="list" id="myList"></div>
+    </div>
+    <div class="tab-body" id="tab-table" hidden>
+      <p class="hint">目前地雷數 <b id="tableMines">3</b>：翻開 N 格寶石後兌現的倍數與成功機率（倍數 × 機率 = 98%）。</p>
+      <div class="list-head three"><span>翻開</span><span>倍數</span><span>成功機率</span></div>
+      <div class="list" id="multTable"></div>
+    </div>
+    <div class="tab-body rules" id="tab-rules" hidden>
+      <ol>
+        <li>選擇下注金額與地雷數（1–24），按「下注」。</li>
+        <li>5×5 共 25 格，隨機藏有你選的地雷數，其餘為寶石 💎。</li>
+        <li>每翻開一顆寶石倍數上升；翻到地雷 💣 本局輸掉下注。</li>
+        <li>翻開至少一格後可隨時「兌現」，派彩 = 下注 × 目前倍數。</li>
+        <li>寶石全部翻完會自動兌現。</li>
+      </ol>
+      <h4>數學（RTP 98%）</h4>
+      <p>連續翻開 k 格都是寶石的機率 P = C(25−m, k) / C(25, k)，倍數 = 0.98 / P。<br>
+      因此不論選幾顆地雷、翻幾格才兌現，長期期望回報都是 <b>98%</b>（莊家優勢 2%），沒有任何「必勝打法」。</p>
+      <p>例：1 顆地雷只翻 1 格，勝率 96%，但倍數只有 1.02×；24 顆地雷翻 1 格，勝率 4%，倍數 24.50×。高勝率不等於會賺錢。</p>
+      <h4>公平性</h4>
+      <p>每局開始前公開 <code>SHA256(伺服器種子)</code>，結束後公開種子。地雷位置 = 用 <code>SHA256(伺服器種子:客戶種子:局號:游標)</code> 產生亂數，對 0–24 做 Fisher–Yates 洗牌後取前 m 格。可在「公平性」視窗自行驗證。</p>
+    </div>
+  </section>
+</main>
+
+<dialog class="modal" id="fairDialog">
+  <form method="dialog" class="modal-card">
+    <h3>公平性驗證</h3>
+    <div class="field">
+      <label for="clientSeed">客戶種子 <small>（下一局起生效）</small></label>
+      <div class="input-row"><input id="clientSeed" type="text" maxlength="64" autocomplete="off"><button type="button" id="seedRandom">換</button></div>
+    </div>
+    <div class="field">
+      <label>下一局伺服器種子雜湊</label>
+      <code class="hash" id="nextHash"></code>
+    </div>
+    <hr>
+    <h4>驗證任一局</h4>
+    <div class="field"><label for="vServer">伺服器種子</label><div class="input-row"><input id="vServer" type="text" autocomplete="off"></div></div>
+    <div class="field"><label for="vClient">客戶種子</label><div class="input-row"><input id="vClient" type="text" autocomplete="off"></div></div>
+    <div class="two">
+      <div class="field"><label for="vNonce">局號</label><div class="input-row"><input id="vNonce" type="number" min="1" step="1"></div></div>
+      <div class="field"><label for="vMines">地雷數</label><div class="input-row"><input id="vMines" type="number" min="1" max="24" step="1"></div></div>
+    </div>
+    <div class="verify-out" id="verifyOut"></div>
+    <div class="mini-board" id="verifyBoard"></div>
+    <div class="modal-actions"><button class="main-btn" value="close">關閉</button></div>
+  </form>
+</dialog>
+
+<script src="js/sha256.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
