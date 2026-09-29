@@ -12,6 +12,7 @@
   --orange: #ff9f1c;
   --red: #ed4163;
   --gold: #ffd166;
+  --gold-light: #fff0aa;
   --tile: #2f4553;
   --tile-hi: #557086;
   --radius: 8px;
@@ -31,19 +32,45 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 code { font-family: ui-monospace, Consolas, monospace; }
 
-/* ---------- topbar ---------- */
+/* ---------- topbar：返回大廳 | 標題 | 餘額 ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 10; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
   padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
   background: var(--panel); box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
 }
-.brand { font-weight: 900; font-size: 20px; letter-spacing: 2px; color: var(--strong); }
-.brand::before { content: "💎 "; }
-.demo-tag { font-size: 12px; color: var(--muted); }
-.back-btn { color: var(--strong); text-decoration: none; background: var(--panel-2); border-radius: 99px; padding: 6px 12px; font-weight: 700; font-size: 13px; }
+.brand {
+  justify-self: center; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 2px; white-space: nowrap;
+  background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, #d89b42);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.back-btn {
+  justify-self: start; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  color: var(--strong); text-decoration: none; background: var(--panel-2); border: 1px solid rgba(255, 209, 102, .45);
+  border-radius: 99px; padding: 6px 14px 6px 10px; font-weight: 700; font-size: 14px;
+}
+.back-btn span:first-child { color: var(--gold); font-size: 18px; line-height: 1; }
 .back-btn:hover { background: var(--line); }
-.sound-btn { margin-left: auto; background: var(--panel-2); border: 0; border-radius: 99px; width: 36px; height: 36px; }
+.top-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.sound-btn { background: var(--panel-2); border: 0; border-radius: 99px; width: 36px; height: 36px; flex: none; }
 .sound-btn.off { opacity: .45; }
+
+/* ---------- 跑馬燈：會員列下方、遊戲區上方，寬 26 字 ---------- */
+.marquee-bar { max-width: 1200px; margin: 0 auto; padding: 10px 12px 0; font-size: 13px; font-weight: 900; line-height: 1.8; }
+.marquee {
+  display: block; width: 26em; max-width: 100%; margin: 0 auto; overflow: hidden; padding: 1px 0;
+  border-radius: 999px; background: linear-gradient(180deg, #1d3a4c, #0b1a24);
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, .55), 0 2px 6px rgba(0, 0, 0, .3);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.marquee-track { display: inline-flex; white-space: nowrap; animation: marquee 20s linear infinite; }
+.marquee-track span {
+  background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, #d89b42);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee-track { animation-duration: 60s !important; } }
+
 .wallet { display: flex; align-items: center; gap: 8px; background: var(--input); border-radius: 99px; padding: 8px 14px; }
 .wallet b { color: var(--strong); font-variant-numeric: tabular-nums; }
 .coin { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe28a, #f5a300); display: inline-block; }
@@ -202,20 +229,28 @@ select { border: 2px solid var(--line); border-radius: 6px; padding: 8px; appear
 
 /* ---------- mobile ---------- */
 @media (max-width: 900px) {
-  .demo-tag { display: none; }
-  .topbar { padding: 8px 12px; gap: 8px; }
-  .brand { font-size: 17px; }
+  .topbar { padding: 8px 10px; gap: 6px; }
+  .brand { font-size: 19px; letter-spacing: 1px; }
   .layout { grid-template-columns: 1fr; grid-template-areas: "stage" "panel" "tables"; padding: 8px; gap: 8px; }
   .board { gap: 7px; }
   .tile { border-radius: 8px; }
   .panel { padding: 12px; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-  .panel .hint.center { display: none; }
+  .panel .hint.center { font-size: 11px; }
   .main-btn#mainBtn {
     position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; z-index: 20;
     box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
   }
 }
-@media (max-width: 380px) {
-  .wallet { padding: 6px 10px; }
+@media (min-width: 900px) {
+  .marquee-bar { padding: 14px 12px 0; font-size: 16px; }
+}
+@media (max-width: 420px) {
+  .topbar { padding-left: 8px; padding-right: 8px; }
+  .back-btn { padding: 5px 9px 5px 6px; font-size: 12px; }
+  .brand { font-size: 17px; }
+  .top-right { gap: 4px; }
+  .wallet { padding: 6px 10px; gap: 5px; }
+  .wallet b { font-size: 13px; }
+  .sound-btn { width: 30px; height: 30px; font-size: 13px; }
   .stats b { font-size: 13px; }
 }

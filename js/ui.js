@@ -53,17 +53,32 @@
     } catch (e) { /* storage unavailable */ }
   }
 
-  // ---------- 返回大廳（只接受自家網域，避免被當成跳轉跳板） ----------
+  // ---------- 返回大廳：預設回 Boss88VIP 大廳；帶 return 參數時只接受自家網域，避免被當成跳轉跳板 ----------
   (function () {
     const ret = new URLSearchParams(location.search).get('return');
     if (!ret) return;
     try {
       const u = new URL(ret);
       const okHost = u.hostname === 'acc2023156.github.io' || u.hostname === location.hostname || u.hostname === 'localhost' || u.hostname === '127.0.0.1';
-      if (!/^https?:$/.test(u.protocol) || !okHost) return;
-      el.back.href = u.href;
-      el.back.hidden = false;
+      if (/^https?:$/.test(u.protocol) && okHost) el.back.href = u.href;
     } catch (e) { /* invalid url */ }
+  })();
+
+  // ---------- 跑馬燈：兩份相同文字捲動一半寬度做無縫循環，每圈重新洗牌祝福語 ----------
+  (function () {
+    const track = $('#marquee');
+    const brand = '寶石探險';
+    const cheers = ['祝你高倍', '寶石滿盤', '加油加油', '好運連連', '大吉大利', '一翻入魂', '財源滾滾', '倍數噴發', '旗開得勝', '手氣長紅', '閃耀全場', '避雷高手'];
+    const sep = '　✦　';
+    const build = () => {
+      const c = cheers.slice().sort(() => Math.random() - 0.5);
+      const text = [brand, c[0], c[1], brand, c[2], c[3]].join(sep) + sep;
+      track.innerHTML = '';
+      for (let i = 0; i < 2; i++) track.appendChild(document.createElement('span')).textContent = text;
+      track.style.animationDuration = text.length * 0.32 + 's';
+    };
+    track.addEventListener('animationiteration', build);
+    build();
   })();
 
   // ---------- 小提示 ----------
