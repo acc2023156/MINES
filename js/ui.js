@@ -13,7 +13,7 @@
 
   const el = {
     balance: $('#balance'), wallet: $('.wallet'), bet: $('#betAmount'), mines: $('#minesSel'), gems: $('#gemsOut'),
-    board: $('#board'), ladder: $('#ladder'), main: $('#mainBtn'), random: $('#randomBtn'),
+    board: $('#board'), ladder: $('#ladder'), main: $('#mainBtn'),
     nextChance: $('#nextChance'), nextMult: $('#nextMult'), curMult: $('#curMult'), curProfit: $('#curProfit'),
     roundChance: $('#roundChance'), nonce: $('#nonceOut'), winPop: $('#winPop'), winMult: $('#winMult'), winPay: $('#winPay'),
     modeSeg: $('#modeSeg'), autoFields: $('#autoFields'), autoPickCount: $('#autoPickCount'),
@@ -210,15 +210,18 @@
     } else if (mode === 'auto') {
       el.main.innerHTML = '開始自動投注';
       el.main.disabled = autoPicks.size === 0;
+    } else if (playing && !game.safeCount) {
+      // 下注後還沒翻任何一格：主按鈕就是「隨機翻一格」（也可以直接點盤面）
+      el.main.innerHTML = '隨機翻一格<small>或直接點選盤面格子</small>';
+      el.main.disabled = busy;
     } else if (playing) {
       el.main.classList.add('cash');
-      const pay = game.safeCount ? cents(game.round.bet * game.currentMultiplier) : 0;
+      const pay = cents(game.round.bet * game.currentMultiplier);
       el.main.innerHTML = `兌現<small>${fmt(pay)}（${fmtMult(game.currentMultiplier)}）</small>`;
       el.main.disabled = !game.canCashout || busy;
     } else {
       el.main.innerHTML = '下注';
     }
-    el.random.hidden = !(mode === 'manual' && playing);
     tiles.forEach((t, i) => {
       if (mode === 'auto' && !autoRunning && !playing) t.disabled = false;
       else t.disabled = !playing || autoRunning || busy || game.round.picks.includes(i);
@@ -399,13 +402,9 @@
   el.main.addEventListener('click', () => {
     if (autoRunning) { autoStopReq = true; renderPanel(); return; }
     if (mode === 'auto') { runAuto(); return; }
-    if (game.active) cashout();
+    if (game.active && !game.safeCount) { if (!busy) reveal(game.randomUnrevealed()); }
+    else if (game.active) cashout();
     else startRound();
-  });
-
-  el.random.addEventListener('click', () => {
-    if (!game.active || busy) return;
-    reveal(game.randomUnrevealed());
   });
 
   document.querySelectorAll('[data-amt]').forEach(b => b.addEventListener('click', () => {
@@ -457,7 +456,7 @@
   document.addEventListener('keydown', e => {
     if (e.target.closest('input, select, textarea, dialog')) return;
     if (e.code === 'Space') { e.preventDefault(); if (!el.main.disabled) el.main.click(); }
-    else if (e.key === 'r' || e.key === 'R') { if (!el.random.hidden) el.random.click(); }
+    else if (e.key === 'r' || e.key === 'R') { if (mode === 'manual' && game.active && !busy && !autoRunning) reveal(game.randomUnrevealed()); }
   });
 
   // ---------- 公平性 ----------
