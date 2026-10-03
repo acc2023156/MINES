@@ -19,8 +19,9 @@
     modeSeg: $('#modeSeg'), autoFields: $('#autoFields'), autoPickCount: $('#autoPickCount'),
     autoCount: $('#autoCount'), onWin: $('#onWin'), onLoss: $('#onLoss'), stopProfit: $('#stopProfit'), stopLoss: $('#stopLoss'),
     myList: $('#myList'), summary: $('#summary'), multTable: $('#multTable'), tableMines: $('#tableMines'),
-    sound: $('#soundBtn'), back: $('#backBtn'),
+    sound: $('#soundBtn'), back: $('#backBtn'), verifyRound: $('#verifyRoundBtn'),
     fair: $('#fairDialog'), clientSeed: $('#clientSeed'), nextHash: $('#nextHash'),
+    roundVerification: $('#roundVerification'), verificationChecks: $('#verificationChecks'),
     vServer: $('#vServer'), vClient: $('#vClient'), vNonce: $('#vNonce'), vMines: $('#vMines'), verifyOut: $('#verifyOut'), verifyBoard: $('#verifyBoard')
   };
 
@@ -252,12 +253,15 @@
       `<div>總下注<b>${fmt(wagered)}</b></div>` +
       `<div>總派彩<b>${fmt(paid)}</b></div>` +
       `<div>實際回報<b>${wagered ? pct(paid / wagered) : '-'}</b></div>`;
+    el.verifyRound.disabled = !history[0]?.serverHash || !Array.isArray(history[0]?.minePositions);
   }
 
   function record(r) {
     history.unshift({
       nonce: r.nonce, mines: r.mines, bet: r.bet, payout: r.payout, mult: r.payout ? r.multiplier : 0,
-      picks: r.picks.slice(), serverSeed: r.serverSeed, clientSeed: r.clientSeed, t: Date.now()
+      picks: r.picks.slice(), serverSeed: r.serverSeed, serverHash: r.serverHash,
+      clientSeed: r.clientSeed, hitTile: r.hitTile,
+      minePositions: [...r.mineSet].sort((a, b) => a - b), t: Date.now()
     });
     if (history.length > 100) history.length = 100;
     renderHistory();
@@ -475,7 +479,47 @@
     el.verifyBoard.innerHTML = Array.from({ length: TILES }, (_, i) => `<span>${set.has(i) ? '💣' : '💎'}</span>`).join('');
   }
 
+  function renderRoundVerification(round) {
+    const positions = minePositions(round.serverSeed, round.clientSeed, round.nonce, round.mines);
+    const recordedHash = round.serverHash || window.sha256(round.serverSeed);
+    const recordedPositions = Array.isArray(round.minePositions) ? round.minePositions : positions;
+    const commitmentOk = window.sha256(round.serverSeed) === recordedHash;
+    const positionsOk = positions.length === recordedPositions.length
+      && positions.every((position, index) => position === recordedPositions[index]);
+    const safePicksOk = round.picks.every(position => !positions.includes(position));
+    const terminalResultOk = round.payout > 0 ? safePicksOk : positions.includes(round.hitTile);
+    const outcomeOk = positionsOk && terminalResultOk;
+    const expectedMultiplier = round.payout > 0 ? multiplier(round.mines, round.picks.length) : 0;
+    const expectedPayout = round.payout > 0 ? cents(round.bet * expectedMultiplier) : 0;
+    const payoutOk = Math.abs(expectedPayout - round.payout) < 0.001
+      && (round.payout === 0 || Math.abs(expectedMultiplier - round.mult) < 0.00000001);
+    const checks = [
+      ['伺服器種子承諾', commitmentOk],
+      ['地雷位置與遊戲結果', outcomeOk],
+      ['倍率與派彩金額', payoutOk]
+    ];
+    el.verificationChecks.innerHTML = checks.map(([label, ok]) =>
+      `<div class="verification-check"><span>${label}</span><strong class="${ok ? 'g' : 'r'}">${ok ? '相符 ✓' : '不相符 ✕'}</strong></div>`
+    ).join('');
+    el.roundVerification.hidden = false;
+  }
+
+  el.verifyRound.addEventListener('click', () => {
+    const last = history[0];
+    if (!last) { say('完成一局後即可驗證'); return; }
+    el.clientSeed.value = game.clientSeed;
+    el.nextHash.textContent = game.nextServerHash;
+    el.vServer.value = last.serverSeed;
+    el.vClient.value = last.clientSeed;
+    el.vNonce.value = last.nonce;
+    el.vMines.value = last.mines;
+    renderRoundVerification(last);
+    renderVerify();
+    el.fair.showModal();
+  });
+
   $('#fairBtn').addEventListener('click', () => {
+    el.roundVerification.hidden = true;
     el.clientSeed.value = game.clientSeed;
     el.nextHash.textContent = game.nextServerHash;
     const last = history[0];

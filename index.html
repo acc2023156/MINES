@@ -7,7 +7,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="description" content="寶石探險：5×5 踩地雷下注遊戲，RTP 98%（模擬遊戲幣，非真錢）">
 <title>寶石探險</title>
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 <header class="topbar">
@@ -97,7 +97,8 @@
     <div class="stage-foot">
       <span>局號 <b id="nonceOut">-</b></span>
       <span>本局勝率 <b id="roundChance">-</b></span>
-      <button class="link" id="fairBtn" type="button">公平性</button>
+      <button class="link verify-link" id="verifyRoundBtn" type="button" disabled>驗證本局</button>
+      <button class="link" id="fairBtn" type="button">公平性設定</button>
     </div>
   </section>
 
@@ -138,6 +139,11 @@
 <dialog class="modal" id="fairDialog">
   <form method="dialog" class="modal-card">
     <h3>公平性驗證</h3>
+    <section class="round-verification" id="roundVerification" hidden>
+      <p class="verify-intro">系統會在您的瀏覽器內重新計算本局結果，不會傳送任何資料。</p>
+      <div class="verification-checks" id="verificationChecks"></div>
+      <hr>
+    </section>
     <div class="field">
       <label for="clientSeed">客戶種子 <small>（下一局起生效）</small></label>
       <div class="input-row"><input id="clientSeed" type="text" maxlength="64" autocomplete="off"><button type="button" id="seedRandom">換</button></div>
@@ -147,7 +153,8 @@
       <code class="hash" id="nextHash"></code>
     </div>
     <hr>
-    <h4>驗證任一局</h4>
+    <details class="advanced-verify" open>
+    <summary>進階驗證資料</summary>
     <div class="field"><label for="vServer">伺服器種子</label><div class="input-row"><input id="vServer" type="text" autocomplete="off"></div></div>
     <div class="field"><label for="vClient">客戶種子</label><div class="input-row"><input id="vClient" type="text" autocomplete="off"></div></div>
     <div class="two">
@@ -156,6 +163,7 @@
     </div>
     <div class="verify-out" id="verifyOut"></div>
     <div class="mini-board" id="verifyBoard"></div>
+    </details>
     <div class="modal-actions"><button class="main-btn" value="close">關閉</button></div>
   </form>
 </dialog>
@@ -163,6 +171,6 @@
 <script src="js/sha256.js?v=2"></script>
 <script src="js/engine.js?v=2"></script>
 <script src="js/sound.js?v=2"></script>
-<script src="js/ui.js?v=3"></script>
+<script src="js/ui.js?v=4"></script>
 </body>
 </html>

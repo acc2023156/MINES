@@ -187,6 +187,9 @@ select { border: 2px solid var(--line); border-radius: 6px; padding: 8px; appear
 .stage-foot b { color: var(--strong); font-variant-numeric: tabular-nums; }
 .link { margin-left: auto; background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 0; }
 .link:hover { color: var(--strong); }
+.link + .link { margin-left: 0; }
+.verify-link { color: var(--green); font-weight: 800; text-decoration: none; }
+.verify-link:disabled { color: var(--muted); cursor: not-allowed; opacity: .55; }
 
 /* ---------- tables ---------- */
 .tabs { display: flex; border-bottom: 1px solid var(--line); }
@@ -223,6 +226,12 @@ select { border: 2px solid var(--line); border-radius: 6px; padding: 8px; appear
 .verify-out { font-size: 12px; margin: 6px 0; word-break: break-all; }
 .verify-out .g { color: var(--green); }
 .verify-out .r { color: var(--red); }
+.verify-intro { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.verification-checks { display: grid; gap: 8px; }
+.verification-check { display: flex; justify-content: space-between; gap: 12px; padding: 10px; border-radius: 6px; background: var(--input); color: var(--strong); font-weight: 700; }
+.verification-check .g { color: var(--green); }
+.verification-check .r { color: var(--red); }
+.advanced-verify summary { margin-bottom: 10px; color: var(--muted); cursor: pointer; font-weight: 700; }
 .mini-board { display: grid; grid-template-columns: repeat(5, 28px); gap: 4px; justify-content: center; margin: 8px 0; }
 .mini-board span { width: 28px; height: 28px; border-radius: 4px; background: var(--input); display: flex; align-items: center; justify-content: center; font-size: 14px; }
 .modal-actions { margin-top: 12px; }
