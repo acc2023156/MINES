@@ -314,14 +314,15 @@
 
   async function startRound() {
     const bet = readBet();
+    // 按下就清空盤面與播放下注音效，不等伺服器
+    resetBoard();
+    Sound.bet();
     try {
       await guarded(() => game.start(bet, +el.mines.value));
     } catch (e) {
       say(e.message);
       return false;
     }
-    resetBoard();
-    Sound.bet();
     save();
     renderPanel();
     return true;
@@ -329,7 +330,11 @@
 
   async function reveal(i) {
     let res;
+    // 按下就先讓格子動起來，伺服器結果回來再翻開
+    tiles[i].classList.add('pending');
+    Sound.select();
     try { res = await guarded(() => game.reveal(i)); } catch (e) { say(e.message); return null; }
+    finally { tiles[i].classList.remove('pending'); }
     if (!res) return null;
     if (res.mine) {
       finishRound(game.round);
