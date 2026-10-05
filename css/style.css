@@ -110,6 +110,9 @@ select { border: 2px solid var(--line); border-radius: 6px; padding: 8px; appear
 .input-row button:hover { background: #3d5564; }
 .input-row button:disabled { opacity: .5; cursor: not-allowed; }
 .suffix { align-self: center; padding: 0 10px; color: var(--muted); }
+/* 自動局數：10–100 局，滑桿或左右箭頭選 */
+.count-row input[type=range] { padding: 0 6px; accent-color: var(--green); background: var(--input); }
+.count-out { color: var(--strong); margin-left: 4px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hint { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
 .hint b { color: var(--strong); }

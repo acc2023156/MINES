@@ -8,6 +8,8 @@
   const fmtMult = x => (x >= 1000 ? x.toLocaleString('en-US', { maximumFractionDigits: 2 }) : x.toFixed(2)) + '×';
   const pct = x => (x * 100 >= 99.995 ? '100' : (x * 100).toFixed(x < 0.001 ? 4 : 2)) + '%';
   const wait = ms => new Promise(r => setTimeout(r, ms));
+  const AUTO_FLIP_MS = 170;
+  const MAX_AUTO_ROUNDS = 100;
 
   // 從大廳進入時（remote）用會員的 GDBO 錢包，紀錄與本機試玩分開存
   const remote = window.Mines.remote;
@@ -20,7 +22,7 @@
     nextChance: $('#nextChance'), nextMult: $('#nextMult'), curMult: $('#curMult'), curProfit: $('#curProfit'),
     roundChance: $('#roundChance'), nonce: $('#nonceOut'), winPop: $('#winPop'), winMult: $('#winMult'), winPay: $('#winPay'),
     modeSeg: $('#modeSeg'), autoFields: $('#autoFields'), autoPickCount: $('#autoPickCount'),
-    autoCount: $('#autoCount'), onWin: $('#onWin'), onLoss: $('#onLoss'), stopProfit: $('#stopProfit'), stopLoss: $('#stopLoss'),
+    autoCount: $('#autoCount'), autoCountOut: $('#autoCountOut'), autoCountDown: $('#autoCountDown'), autoCountUp: $('#autoCountUp'), onWin: $('#onWin'), onLoss: $('#onLoss'), stopProfit: $('#stopProfit'), stopLoss: $('#stopLoss'),
     myList: $('#myList'), summary: $('#summary'), multTable: $('#multTable'), tableMines: $('#tableMines'),
     sound: $('#soundBtn'), back: $('#backBtn'), verifyRound: $('#verifyRoundBtn'),
     fair: $('#fairDialog'), clientSeed: $('#clientSeed'), nextHash: $('#nextHash'),
@@ -184,7 +186,7 @@
     el.mines.disabled = lock;
     document.querySelectorAll('[data-amt]').forEach(b => { b.disabled = lock; });
     el.modeSeg.querySelectorAll('button').forEach(b => { b.disabled = lock; });
-    [el.autoCount, el.onWin, el.onLoss, el.stopProfit, el.stopLoss].forEach(i => { i.disabled = autoRunning; });
+    [el.autoCount, el.autoCountDown, el.autoCountUp, el.onWin, el.onLoss, el.stopProfit, el.stopLoss].forEach(i => { i.disabled = autoRunning; });
 
     if (playing) {
       const r = game.round;
@@ -376,11 +378,68 @@
   }
 
   // ---------- 自動投注 ----------
+  /** 自動局數：10–100 局，以 10 為單位。 */
+  function autoCountValue() {
+    const v = Math.round((+el.autoCount.value || 0) / 10) * 10;
+    return Math.min(MAX_AUTO_ROUNDS, Math.max(10, v));
+  }
+
+  function showCount(value) {
+    el.autoCount.value = value;
+    el.autoCountOut.textContent = value;
+  }
+
+  // 連線模式：一局只要一次請求；這局在播放翻格時，下一局已經在伺服器結算，局與局之間不必等
+  async function runAutoRemote(picks, baseBet, rounds, { onWin, onLoss, stopProfit, stopLoss }) {
+    const mines = +el.mines.value;
+    let bet = baseBet;
+    let net = 0;
+    let done = 0;
+    let next = bet > game.balance + 1e-9 ? null : game.autoRound(bet, mines, picks);
+    if (!next) say('餘額不足，自動投注停止');
+    while (next) {
+      resetBoard();
+      Sound.bet();
+      let played;
+      try { played = await next; } catch (e) { say(e.message); break; }
+      next = null;
+      const r = played.round;
+      net = cents(net + r.payout - r.bet);
+      done += 1;
+      if (r.payout > 0) bet = onWin ? cents(bet * (1 + onWin / 100)) : baseBet;
+      else bet = onLoss ? cents(bet * (1 + onLoss / 100)) : baseBet;
+      bet = Math.max(0.01, bet);
+      let stop = null;
+      if (stopProfit && net >= stopProfit) stop = [`已達獲利目標 ${fmt(net)}`, true];
+      else if (stopLoss && -net >= stopLoss) stop = [`已達虧損上限 ${fmt(net)}`, false];
+      else if (done < rounds && !autoStopReq) {
+        if (bet > played.balance + 1e-9) stop = ['餘額不足，自動投注停止', false];
+        else next = game.autoRound(bet, mines, picks);
+      }
+      // 播放這一局：依序翻開，踩到地雷或全部翻完就結算
+      el.bet.value = r.bet.toFixed(2);
+      let gems = 0;
+      for (const i of played.order) {
+        await wait(AUTO_FLIP_MS);
+        if (i === r.hitTile) break;
+        openTile(i, 'gem');
+        Sound.gem(++gems);
+      }
+      game.round = r;
+      game.nonce = r.nonce;
+      game.balance = played.balance;
+      finishRound(r);
+      showCount(rounds - done);
+      if (stop) say(stop[0], stop[1]);
+      if (next) await wait(r.payout > 0 ? 450 : 650);
+    }
+  }
+
   async function runAuto() {
     if (!autoPicks.size) { say('請先在盤面選格子'); return; }
     const picks = [...autoPicks];
     const baseBet = readBet();
-    const rounds = Math.max(0, Math.floor(+el.autoCount.value || 0));
+    const rounds = autoCountValue();
     const onWin = Math.max(0, +el.onWin.value || 0);
     const onLoss = Math.max(0, +el.onLoss.value || 0);
     const stopProfit = Math.max(0, +el.stopProfit.value || 0);
@@ -391,7 +450,8 @@
     autoRunning = true;
     autoStopReq = false;
     renderPanel();
-    while (!autoStopReq && (rounds === 0 || done < rounds)) {
+    if (game.autoRound) await runAutoRemote(picks, baseBet, rounds, { onWin, onLoss, stopProfit, stopLoss });
+    else while (!autoStopReq && done < rounds) {
       if (bet > game.balance) { say('餘額不足，自動投注停止'); break; }
       el.bet.value = bet.toFixed(2);
       if (!(await startRound())) break;
@@ -405,7 +465,7 @@
       if (!r || r.status === 'playing') { say('連線中斷，自動投注停止'); break; }
       net += r.payout - r.bet;
       done += 1;
-      if (rounds) el.autoCount.value = rounds - done;
+      showCount(rounds - done);
       if (r.payout > 0) bet = onWin ? cents(bet * (1 + onWin / 100)) : baseBet;
       else bet = onLoss ? cents(bet * (1 + onLoss / 100)) : baseBet;
       bet = Math.max(0.01, bet);
@@ -413,7 +473,7 @@
       if (stopLoss && -net >= stopLoss) { say(`已達虧損上限 ${fmt(net)}`); break; }
       await wait(r.payout > 0 ? 650 : 900);
     }
-    if (rounds) el.autoCount.value = rounds;
+    showCount(rounds);
     el.bet.value = baseBet.toFixed(2);
     autoRunning = false;
     autoStopReq = false;
@@ -422,6 +482,9 @@
   }
 
   // ---------- 事件 ----------
+  el.autoCount.addEventListener('input', () => showCount(autoCountValue()));
+  el.autoCountDown.addEventListener('click', () => showCount(Math.max(10, autoCountValue() - 10)));
+  el.autoCountUp.addEventListener('click', () => showCount(Math.min(MAX_AUTO_ROUNDS, autoCountValue() + 10)));
   el.main.addEventListener('click', () => {
     if (autoRunning) { autoStopReq = true; renderPanel(); return; }
     if (busy) return;

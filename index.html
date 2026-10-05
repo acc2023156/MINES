@@ -7,7 +7,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="description" content="寶石探險：5×5 踩地雷下注遊戲，RTP 98%（模擬遊戲幣，非真錢）">
 <title>寶石探險</title>
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 <header class="topbar">
@@ -51,8 +51,12 @@
     <div id="autoFields" class="auto-fields" hidden>
       <p class="hint">在右側盤面點選要自動翻開的格子（已選 <b id="autoPickCount">0</b> 格）。</p>
       <div class="field">
-        <label for="autoCount">局數 <small>（0 = 無限）</small></label>
-        <div class="input-row"><input id="autoCount" type="number" inputmode="numeric" min="0" step="1" value="10"></div>
+        <label for="autoCount">局數 <b id="autoCountOut" class="count-out">10</b></label>
+        <div class="input-row count-row">
+          <button type="button" id="autoCountDown" aria-label="減少 10 局">◀</button>
+          <input id="autoCount" type="range" min="10" max="100" step="10" value="10">
+          <button type="button" id="autoCountUp" aria-label="增加 10 局">▶</button>
+        </div>
       </div>
       <div class="two">
         <div class="field">
@@ -170,8 +174,8 @@
 
 <script src="js/sha256.js?v=2"></script>
 <script src="js/engine.js?v=2"></script>
-<script src="js/remote.js?v=1"></script>
+<script src="js/remote.js?v=2"></script>
 <script src="js/sound.js?v=2"></script>
-<script src="js/ui.js?v=6"></script>
+<script src="js/ui.js?v=7"></script>
 </body>
 </html>
