@@ -105,6 +105,30 @@
       return { mine: false, round: r };
     }
 
+    /**
+     * 自動模式：一次請求打完一局（依序翻開 tiles，全部安全則兌現）。
+     * 不動目前盤面與餘額，回傳結算好的一局、翻開順序與結算後餘額，由畫面播放完再套用。
+     */
+    async autoRound(bet, mines, tiles) {
+      bet = Math.floor(+bet * 100 + 1e-7) / 100;
+      const res = await this.api('/games/mines/auto-rounds', {
+        request_id: global.crypto.randomUUID(), commitment_id: this.commitment.id, client_seed: this.clientSeed,
+        wager: { units: toUnits(bet), currency: 'TWD', scale: 3 }, mines: +mines, tiles
+      });
+      this.commitment = res.next_commitment;
+      const round = res.round;
+      return {
+        order: res.reveal_order,
+        balance: fromMoney(res.balance),
+        round: {
+          id: round.id, bet, mines: +mines, picks: round.revealed_tiles.slice(), status: round.status,
+          payout: fromMoney(round.payout), multiplier: +round.multiplier, hitTile: round.hit_tile ?? -1,
+          mineSet: new Set(round.mine_positions), nonce: +res.fairness.nonce, clientSeed: res.fairness.client_seed,
+          serverHash: res.fairness.server_seed_hash, serverSeed: res.fairness.server_seed
+        }
+      };
+    }
+
     async cashout() {
       if (!this.canCashout) throw new Error('至少要翻開一格');
       const res = await this.api(`/games/mines/rounds/${encodeURIComponent(this.round.id)}/cashout`, { request_id: global.crypto.randomUUID() });
