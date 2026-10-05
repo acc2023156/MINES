@@ -3,12 +3,15 @@
   'use strict';
   const { TILES, MIN_MINES, MAX_MINES, multiplier, survival, minePositions, randomHex, cents, MinesGame } = window.Mines;
   const $ = s => document.querySelector(s);
-  const fmt = x => (+x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // 金額顯示兩位小數、無條件捨去（與大廳、GDBO 一致）
+  const fmt = x => (Math.trunc(Math.round(+x * 1000) / 10) / 100 || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtMult = x => (x >= 1000 ? x.toLocaleString('en-US', { maximumFractionDigits: 2 }) : x.toFixed(2)) + '×';
   const pct = x => (x * 100 >= 99.995 ? '100' : (x * 100).toFixed(x < 0.001 ? 4 : 2)) + '%';
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
-  const KEY = 'mines.v1';
+  // 從大廳進入時（remote）用會員的 GDBO 錢包，紀錄與本機試玩分開存
+  const remote = window.Mines.remote;
+  const KEY = remote ? 'mines.gd.v1' : 'mines.v1';
   const START_BALANCE = 1000;
 
   const el = {
@@ -28,11 +31,13 @@
   // ---------- 存檔 ----------
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { saved = {}; }
-  const game = new MinesGame({ balance: saved.balance ?? START_BALANCE, clientSeed: saved.clientSeed, nonce: saved.nonce });
-  if (saved.nextServerSeed) game.nextServerSeed = saved.nextServerSeed;
+  const game = remote
+    ? new remote.RemoteMinesGame({ clientSeed: saved.clientSeed })
+    : new MinesGame({ balance: saved.balance ?? START_BALANCE, clientSeed: saved.clientSeed, nonce: saved.nonce });
+  if (saved.nextServerSeed && !remote) game.nextServerSeed = saved.nextServerSeed;
   const history = Array.isArray(saved.history) ? saved.history : [];
-  // 重新整理時還原進行中的局
-  if (saved.round && saved.round.status === 'playing') {
+  // 重新整理時還原進行中的局（remote 由伺服器還原）
+  if (!remote && saved.round && saved.round.status === 'playing') {
     const r = saved.round;
     game.round = { ...r, mineSet: new Set(minePositions(r.serverSeed, r.clientSeed, r.nonce, r.mines)) };
   }
@@ -45,7 +50,7 @@
   const initialMines = saved.mines || 3;
 
   function save() {
-    const r = game.round && game.round.status === 'playing' ? { ...game.round, mineSet: undefined } : null;
+    const r = !remote && game.round && game.round.status === 'playing' ? { ...game.round, mineSet: undefined } : null;
     try {
       localStorage.setItem(KEY, JSON.stringify({
         balance: game.balance, clientSeed: game.clientSeed, nonce: game.nonce, nextServerSeed: game.nextServerSeed,
@@ -275,7 +280,7 @@
 
   // 餘額用完自動補回
   function refillIfBroke() {
-    if (!game.active && game.balance < 0.1) {
+    if (!remote && !game.active && game.balance < 0.1) {
       game.balance = START_BALANCE;
       say(`遊戲幣用完了，已補回 ${START_BALANCE}`, true);
     }
@@ -300,10 +305,17 @@
     renderPanel();
   }
 
-  function startRound() {
+  // 伺服器請求進行中時鎖住盤面與按鈕，避免重複送出
+  async function guarded(task) {
+    busy = true;
+    renderPanel();
+    try { return await task(); } finally { busy = false; renderPanel(); }
+  }
+
+  async function startRound() {
     const bet = readBet();
     try {
-      game.start(bet, +el.mines.value);
+      await guarded(() => game.start(bet, +el.mines.value));
     } catch (e) {
       say(e.message);
       return false;
@@ -315,8 +327,9 @@
     return true;
   }
 
-  function reveal(i) {
-    const res = game.reveal(i);
+  async function reveal(i) {
+    let res;
+    try { res = await guarded(() => game.reveal(i)); } catch (e) { say(e.message); return null; }
     if (!res) return null;
     if (res.mine) {
       finishRound(game.round);
@@ -329,9 +342,9 @@
     return res;
   }
 
-  function cashout() {
+  async function cashout() {
     if (!game.canCashout) return;
-    try { finishRound(game.cashout()); } catch (e) { say(e.message); }
+    try { finishRound(await guarded(() => game.cashout())); } catch (e) { say(e.message); }
   }
 
   function onTile(i) {
@@ -376,14 +389,15 @@
     while (!autoStopReq && (rounds === 0 || done < rounds)) {
       if (bet > game.balance) { say('餘額不足，自動投注停止'); break; }
       el.bet.value = bet.toFixed(2);
-      if (!startRound()) break;
+      if (!(await startRound())) break;
       for (const i of picks) {
         await wait(170);
-        const res = reveal(i);
+        const res = await reveal(i);
         if (!res || res.mine || !game.active) break;
       }
-      if (game.active) cashout();
+      if (game.active) await cashout();
       const r = game.round;
+      if (!r || r.status === 'playing') { say('連線中斷，自動投注停止'); break; }
       net += r.payout - r.bet;
       done += 1;
       if (rounds) el.autoCount.value = rounds - done;
@@ -405,6 +419,7 @@
   // ---------- 事件 ----------
   el.main.addEventListener('click', () => {
     if (autoRunning) { autoStopReq = true; renderPanel(); return; }
+    if (busy) return;
     if (mode === 'auto') { runAuto(); return; }
     if (game.active && !game.safeCount) { if (!busy) reveal(game.randomUnrevealed()); }
     else if (game.active) cashout();
@@ -552,5 +567,10 @@
   renderTable();
   renderHistory();
   renderPanel();
+  if (remote) {
+    guarded(() => game.connect())
+      .then(() => { drawBoardFromRound(); el.clientSeed.value = game.clientSeed; })
+      .catch(e => { busy = true; renderPanel(); say(`無法連接遊戲伺服器：${e.message}`); });
+  }
   window.addEventListener('beforeunload', save);
 })();
